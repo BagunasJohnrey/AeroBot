@@ -1,5 +1,6 @@
-python-telegram-bot==20.7
-requests
-requests_cache
-openmeteo_requests
-retry_requests
+python-telegram-bot==20.3
+requests==2.31.0
+openmeteo-requests==1.1.0
+requests-cache==1.1.0
+retry-requests==1.0.1
+python-dotenv==1.0.0  # Optional but recommended for managing secrets
