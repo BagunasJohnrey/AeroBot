@@ -3,4 +3,5 @@ requests==2.31.0
 openmeteo-requests==1.1.0
 requests-cache==1.1.0
 retry-requests==1.0.1
-python-dotenv==1.0.0  # Optional but recommended for managing secrets
+urllib3>=1.26.0,<2.0.0  # Explicit version constraint
+python-dotenv==1.0.0
