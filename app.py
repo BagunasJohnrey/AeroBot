@@ -6,6 +6,7 @@ import requests_cache
 from retry_requests import retry
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext
+from urllib3.util.retry import Retry
 
 # Set up logging
 logging.basicConfig(
@@ -28,9 +29,14 @@ OPENROUTER_HEADERS = {
     "X-Title": "AeroBot Climate Assistant"
 }
 
-# Setup Open-Meteo API client
+# Setup Open-Meteo API client with fixed retry configuration
 cache_session = requests_cache.CachedSession('.cache', expire_after=3600)
-retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
+retry_strategy = Retry(
+    total=5,
+    backoff_factor=0.2,
+    allowed_methods=["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
+)
+retry_session = retry(cache_session, retry_strategy=retry_strategy)
 openmeteo = openmeteo_requests.Client(session=retry_session)
 
 def create_main_menu():
