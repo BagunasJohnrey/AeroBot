@@ -16,8 +16,16 @@ logger = logging.getLogger(__name__)
 
 # Configuration - REPLACE WITH YOUR ACTUAL VALUES
 CONFIG = {
-    "OPENROUTER_API_KEY": "sk-or-v1-f188312ce0cdc28906ee5deb89004b1b0345b5657ec18a2f9666f684a289f64esk-or-v1-1b95557fab541e3aee5b8c7f6f739a5bbc85015257b120a9aa4948895f83428a",
+    "OPENROUTER_API_KEY": "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",
     "TELEGRAM_TOKEN": "7929112977:AAF06-TXEMxFH5PMdDj0RJzXizJqC_ADNwA"
+}
+
+# OpenRouter API headers
+OPENROUTER_HEADERS = {
+    "Authorization": f"Bearer {CONFIG['OPENROUTER_API_KEY']}",
+    "Content-Type": "application/json",
+    "HTTP-Referer": "https://github.com/BagunasJohnrey/AeroBot",
+    "X-Title": "AeroBot Climate Assistant"
 }
 
 # Setup Open-Meteo API client
@@ -63,7 +71,7 @@ def create_ask_again_menu(previous_mode):
 async def start(update: Update, context: CallbackContext):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text = "🌍 Welcome to AeroBot! 🌱\n\nHi there! I'm Aero Bot, your friendly AI assistant for climate change awareness. My mission is to help you understand the effects of climate change and provide practical solutions to make a difference.\n\nHere's what I can do for you:\n✅ Educate you on climate change and its impact.\n✅ Provide localized environmental data, like air pollution levels and temperature anomalies.\n✅ Suggest eco-friendly habits to reduce your carbon footprint and adopt sustainable practices.\n\nLet's work together for a greener planet! 🌿💚 How can I assist you today?",
+        text="🌍 Welcome to AeroBot! 🌱\n\nHi there! I'm Aero Bot, your friendly AI assistant for climate change awareness. My mission is to help you understand the effects of climate change and provide practical solutions to make a difference.\n\nHere's what I can do for you:\n✅ Educate you on climate change and its impact.\n✅ Provide localized environmental data, like air pollution levels and temperature anomalies.\n✅ Suggest eco-friendly habits to reduce your carbon footprint and adopt sustainable practices.\n\nLet's work together for a greener planet! 🌿💚 How can I assist you today?",
         reply_markup=create_main_menu()
     )
 
@@ -81,7 +89,7 @@ async def handle_button(update: Update, context: CallbackContext):
     elif data == 'ask':
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Ask me anything about climate related informations:"
+            text="Ask me anything about climate related information:"
         )
         context.user_data['mode'] = 'ask'
         context.user_data['previous_mode'] = 'ask'
@@ -140,10 +148,7 @@ async def get_eco_tips():
     try:
         response = requests.post(
             url="https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {CONFIG['OPENROUTER_API_KEY']}",
-                "Content-Type": "application/json"
-            },
+            headers=OPENROUTER_HEADERS,
             json={
                 "model": "deepseek/deepseek-chat-v3-0324:free",
                 "messages": [
@@ -160,19 +165,18 @@ async def get_eco_tips():
             }
         )
         response.raise_for_status()
-        return "🌿 Eco Tips 🌿\n\n" + response.json()["choices"][0]["message"]["content"]
+        data = response.json()
+        return "🌿 Eco Tips 🌿\n\n" + data["choices"][0]["message"]["content"]
     except Exception as e:
-        logger.error(f"Failed to get eco tips: {e}")
+        logger.error(f"Failed to get eco tips: {str(e)}")
+        logger.error(f"Response: {response.text if 'response' in locals() else 'No response'}")
         return "⚠️ Couldn't fetch eco tips. Please try again later."
 
 async def ask_ai(question: str):
     try:
         response = requests.post(
             url="https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {CONFIG['OPENROUTER_API_KEY']}",
-                "Content-Type": "application/json"
-            },
+            headers=OPENROUTER_HEADERS,
             json={
                 "model": "deepseek/deepseek-chat-v3-0324:free",
                 "messages": [
@@ -189,36 +193,39 @@ async def ask_ai(question: str):
             }
         )
         response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"]
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
     except Exception as e:
-        logger.error(f"Failed to get AI response: {e}")
+        logger.error(f"Failed to get AI response: {str(e)}")
+        logger.error(f"Response: {response.text if 'response' in locals() else 'No response'}")
         return "⚠️ Couldn't process your question. Please try again later."
 
 async def get_climate_events(city: str = None):
     try:
+        prompt = f"List 3 upcoming climate action events (e.g., cleanups, webinars) {f'in {city}' if city else 'globally'}. " \
+                 "Include: Event name, date, location/link, and 1-sentence description. " \
+                 "Format as a numbered list with bold titles."
+        
         response = requests.post(
             url="https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {CONFIG['OPENROUTER_API_KEY']}",
-                "Content-Type": "application/json"
-            },
+            headers=OPENROUTER_HEADERS,
             json={
                 "model": "deepseek/deepseek-chat-v3-0324:free",
                 "messages": [
                     {
                         "role": "system",
-                        "content": f"List 3 upcoming climate action events (e.g., cleanups, webinars) {f'in {city}' if city else 'globally'}. "
-                                  "Include: Event name, date, location/link, and 1-sentence description. "
-                                  "Format as a numbered list with bold titles."
+                        "content": prompt
                     }
                 ],
                 "max_tokens": 300
             }
         )
+        response.raise_for_status()
         events = response.json()["choices"][0]["message"]["content"]
         return f"🌎 **Climate Events** 🌎\n\n{events}"
     except Exception as e:
-        logger.error(f"Event fetch error: {e}")
+        logger.error(f"Event fetch error: {str(e)}")
+        logger.error(f"Response: {response.text if 'response' in locals() else 'No response'}")
         return "⚠️ Couldn't fetch events. Try again later."
 
 async def get_water_tips(region: str = None):
@@ -229,24 +236,26 @@ async def get_water_tips(region: str = None):
         
         response = requests.post(
             url="https://openrouter.ai/api/v1/chat/completions",
-            headers={"Authorization": f"Bearer {CONFIG['OPENROUTER_API_KEY']}"},
+            headers=OPENROUTER_HEADERS,
             json={
                 "model": "deepseek/deepseek-chat-v3-0324:free",
                 "messages": [{"role": "system", "content": prompt}],
                 "max_tokens": 200
             }
         )
+        response.raise_for_status()
         tips = response.json()["choices"][0]["message"]["content"]
         return f"💧 **Water-Saving Tips** 💧\n\n{tips}"
     except Exception as e:
-        logger.error(f"Water tips error: {e}")
+        logger.error(f"Water tips error: {str(e)}")
+        logger.error(f"Response: {response.text if 'response' in locals() else 'No response'}")
         return "⚠️ Failed to load tips. Please try later."
 
 async def get_disaster_prep(disaster_type: str):
     try:
         response = requests.post(
             url="https://openrouter.ai/api/v1/chat/completions",
-            headers={"Authorization": f"Bearer {CONFIG['OPENROUTER_API_KEY']}"},
+            headers=OPENROUTER_HEADERS,
             json={
                 "model": "deepseek/deepseek-chat-v3-0324:free",
                 "messages": [
@@ -260,20 +269,19 @@ async def get_disaster_prep(disaster_type: str):
                 "max_tokens": 250
             }
         )
-        return f"⚠️ **{disaster_type.capitalize()} Preparedness** ⚠️\n\n" + \
-               response.json()["choices"][0]["message"]["content"]
+        response.raise_for_status()
+        content = response.json()["choices"][0]["message"]["content"]
+        return f"⚠️ **{disaster_type.capitalize()} Preparedness** ⚠️\n\n" + content
     except Exception as e:
-        logger.error(f"Disaster prep error: {e}")
+        logger.error(f"Disaster prep error: {str(e)}")
+        logger.error(f"Response: {response.text if 'response' in locals() else 'No response'}")
         return "⚠️ Couldn't fetch guide. Try again later."
 
 async def get_full_location(city: str):
     try:
         response = requests.post(
             url="https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {CONFIG['OPENROUTER_API_KEY']}",
-                "Content-Type": "application/json"
-            },
+            headers=OPENROUTER_HEADERS,
             json={
                 "model": "deepseek/deepseek-chat-v3-0324:free",
                 "messages": [
@@ -292,7 +300,7 @@ async def get_full_location(city: str):
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
     except Exception as e:
-        logger.error(f"Failed to get location: {e}")
+        logger.error(f"Failed to get location: {str(e)}")
         return city
 
 async def get_weather(city: str, weather_type: str):
