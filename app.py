@@ -44,7 +44,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 # Main function to start the bot
 def main() -> None:
     # Replace with your Telegram bot token
-    telegram_token = "7929112977:AAF06-TXEMxFH5PMdDj0RJzXizJqC_ADNwA"
+    telegram_token = "7712985692:AAF7aAks7-jdKsJFMcg2AONaFHwyAAPhrzE"
     
     updater = Updater(telegram_token)
 
