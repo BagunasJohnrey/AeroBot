@@ -2,8 +2,13 @@ import logging
 import requests
 import openmeteo_requests
 import requests_cache
+from dotenv import load_dotenv
+import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -12,10 +17,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Configuration
+# Configuration (Using environment variables)
 CONFIG = {
-    "OPENROUTER_API_KEY": "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",
-    "TELEGRAM_TOKEN": "7712985692:AAF7aAks7-jdKsJFMcg2AONaFHwyAAPhrzE"
+    "OPENROUTER_API_KEY": os.getenv("OPENROUTER_API_KEY"),
+    "TELEGRAM_TOKEN": os.getenv("TELEGRAM_TOKEN")
 }
 
 # Setup Open-Meteo API client with cache
