@@ -1,3 +1,4 @@
+
 import logging
 import requests
 import json
@@ -226,7 +227,7 @@ async def get_water_tips(region: str = None):
         prompt = "Give 5 concise water conservation tips" + \
                 (f" for {region}." if region else " (general).") + \
                 " Format as a numbered list with 💧 emoji."
-        
+       
         response = requests.post(
             url="https://openrouter.ai/api/v1/chat/completions",
             headers={"Authorization": f"Bearer {CONFIG['OPENROUTER_API_KEY']}"},
@@ -298,14 +299,14 @@ async def get_full_location(city: str):
 async def get_weather(city: str, weather_type: str):
     full_location = await get_full_location(city)
     lat, lon = get_coordinates(full_location.split(',')[0].strip())
-    
+   
     if not lat:
         return f"Location not found: {full_location}"
-    
+   
     weather = fetch_weather(lat, lon)
     if not weather:
         return f"Weather data unavailable for {full_location}"
-    
+   
     # Format all values to 2 decimal places
     if weather_type == 'temp':
         return f"🌡️ Temperature in {full_location}: {weather['temp']:.2f}°C"
@@ -395,11 +396,11 @@ def main():
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CallbackQueryHandler(handle_button))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-        
+       
         logger.info("Starting bot...")
         app.run_polling()
     except Exception as e:
         logger.error(f"Bot failed to start: {e}")
 
 if __name__ == "__main__":
-    main()
+    main() 
