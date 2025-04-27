@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 CONFIG = {
-    "OPENROUTER_API_KEY": "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",
+    "OPENROUTER_API_KEY": "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",
     "TELEGRAM_TOKEN": "7712985692:AAF7aAks7-jdKsJFMcg2AONaFHwyAAPhrzE"
 }
 
