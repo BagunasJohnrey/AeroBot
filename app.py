@@ -2,6 +2,7 @@ import logging
 import requests
 import openmeteo_requests
 import requests_cache
+import asyncio
 from dotenv import load_dotenv
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
