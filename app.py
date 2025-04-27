@@ -218,29 +218,28 @@ def get_uv_level(uv_index):
 # AI Chatbot function
 async def ai_chat(question: str) -> str:
     try:
-        response = requests.post(
-            url="https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {CONFIG['OPENROUTER_API_KEY']}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "deepseek/deepseek-chat-v3-0324:free",
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are a helpful assistant that provides concise, informative answers."
-                    },
-                    {
-                        "role": "user",
-                        "content": question
-                    }
-                ],
-                "max_tokens": 500
-            }
-        )
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"]
+        def make_request():
+            response = requests.post(
+                url="https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {CONFIG['OPENROUTER_API_KEY']}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "deepseek/deepseek-chat-v3-0324:free",
+                    "messages": [
+                        {"role": "system", "content": "You are a helpful assistant that provides concise, informative answers."},
+                        {"role": "user", "content": question}
+                    ],
+                    "max_tokens": 500
+                }
+            )
+            response.raise_for_status()
+            return response.json()["choices"][0]["message"]["content"]
+        
+        result = await asyncio.to_thread(make_request)
+        return result
+
     except Exception as e:
         logger.error(f"AI chat error: {e}")
         return "Sorry, I'm having trouble processing your request right now."
