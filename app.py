@@ -351,85 +351,57 @@ async def weather_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("Please ask a question after /ai. Example: /ai How can I reduce my carbon footprint?")
+        await update.message.reply_text("Please ask a question. Example: /ai What are the effects of climate change?")
         return
     
     question = " ".join(context.args)
-    await update.message.reply_text("🤖 Thinking...")
-    response = await ai_chat(question)
-    await update.message.reply_text(response)
+    answer = await ai_chat(question)
+    await update.message.reply_text(answer)
 
-async def eco_tip_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ecotip_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tip = ECO_TIPS[hash(update.message.from_user.id) % len(ECO_TIPS)]
     await update.message.reply_text(f"🌱 Eco Tip:\n\n{tip}")
 
-async def water_tip_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def watertip_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tip = WATER_CONSERVATION_TIPS[hash(update.message.from_user.id) % len(WATER_CONSERVATION_TIPS)]
     await update.message.reply_text(f"💧 Water Conservation Tip:\n\n{tip}")
 
 async def disaster_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text(
-            "Please specify a disaster type. Options: typhoon, earthquake, flood, wildfire\n"
-            "Example: /disaster earthquake"
-        )
+        await update.message.reply_text("Please specify a disaster type. Example: /disaster typhoon")
         return
     
     disaster_type = context.args[0].lower()
-    tips = DISASTER_TIPS.get(disaster_type, [])
+    tips = DISASTER_TIPS.get(disaster_type)
     
     if tips:
         formatted_tips = "\n\n• ".join(tips)
-        await update.message.reply_text(
-            f"⚠️ {disaster_type.capitalize()} Preparedness Tips:\n\n• {formatted_tips}"
-        )
+        await update.message.reply_text(f"⚠️ {disaster_type.capitalize()} Preparedness Tips:\n\n• {formatted_tips}")
     else:
-        await update.message.reply_text(
-            "Invalid disaster type. Options: typhoon, earthquake, flood, wildfire"
-        )
+        await update.message.reply_text("Invalid disaster type. Please choose from: typhoon, earthquake, flood, wildfire.")
 
-async def climate_events_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def climateevents_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     events = "\n\n".join(PAST_CLIMATE_EVENTS)
-    await update.message.reply_text(
-        "📜 Notable Past Climate Events:\n\n" + events
-    )
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if text.lower().startswith(('weather', 'temp', 'temperature', 'uv')):
-        city = text.split(' ', 1)[1] if ' ' in text else None
-        if city:
-            temp = await get_temperature(city)
-            uv = await get_uv_index(city)
-            await update.message.reply_text(f"{temp}\n{uv}")
-        else:
-            await update.message.reply_text("Please specify a city after your request.")
-    else:
-        await update.message.reply_text(
-            "I didn't understand that. Try one of the commands or use /help for options."
-        )
+    await update.message.reply_text(f"📜 Notable Past Climate Events:\n\n{events}")
 
 def main():
     application = Application.builder().token(CONFIG["TELEGRAM_TOKEN"]).build()
 
-    # Command handlers
+    # Command Handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("weather", weather_command))
     application.add_handler(CommandHandler("ai", ai_command))
-    application.add_handler(CommandHandler("ecotip", eco_tip_command))
-    application.add_handler(CommandHandler("watertip", water_tip_command))
+    application.add_handler(CommandHandler("ecotip", ecotip_command))
+    application.add_handler(CommandHandler("watertip", watertip_command))
     application.add_handler(CommandHandler("disaster", disaster_command))
-    application.add_handler(CommandHandler("climateevents", climate_events_command))
+    application.add_handler(CommandHandler("climateevents", climateevents_command))
 
-    # Button handler
+    # Button Handlers
     application.add_handler(CallbackQueryHandler(button_handler))
-
-    # Message handler
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     # Run the bot
     application.run_polling()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
