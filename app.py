@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration - replace with your actual Telegram token
 CONFIG = {
-    "TELEGRAM_TOKEN": "YOUR_TELEGRAM_BOT_TOKEN"
+    "TELEGRAM_TOKEN": "7929112977:AAF06-TXEMxFH5PMdDj0RJzXizJqC_ADNwA"
 }
 
 # Setup Open-Meteo API client
