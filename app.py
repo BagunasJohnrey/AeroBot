@@ -1,7 +1,5 @@
 import logging
 import requests
-import json
-import openmeteo_requests
 import requests_cache
 from retry_requests import retry
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -16,14 +14,12 @@ logger = logging.getLogger(__name__)
 
 # Configuration - REPLACE WITH YOUR ACTUAL VALUES
 CONFIG = {
-    "OPENROUTER_API_KEY": "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",
     "TELEGRAM_TOKEN": "7929112977:AAF06-TXEMxFH5PMdDj0RJzXizJqC_ADNwA"
 }
 
 # Setup Open-Meteo API client
 cache_session = requests_cache.CachedSession('.cache', expire_after=3600)
 retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
-openmeteo = openmeteo_requests.Client(session=retry_session)
 
 def create_main_menu():
     return InlineKeyboardMarkup([
@@ -41,7 +37,7 @@ def create_weather_menu():
 async def start(update: Update, context: CallbackContext):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text = "🌍 Welcome to AeroBot! 🌱\n\nHi there! I'm Aero Bot, your friendly AI assistant for weather-related information. Let's get started!",
+        text="🌍 Welcome to WeatherBot! 🌱\n\nHi there! I can provide you with weather information such as temperature and UV index. How can I assist you today?",
         reply_markup=create_main_menu()
     )
 
@@ -57,35 +53,57 @@ async def handle_button(update: Update, context: CallbackContext):
             reply_markup=create_weather_menu()
         )
     elif data == 'temp':
-        context.user_data['weather_type'] = 'temp'
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Which city?"
+            text="Please enter a city to get the temperature:"
         )
+        context.user_data['mode'] = 'temp'
     elif data == 'uv':
-        context.user_data['weather_type'] = 'uv'
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Which city?"
+            text="Please enter a city to get the UV index:"
         )
+        context.user_data['mode'] = 'uv'
     elif data == 'exit':
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Thank you for using AeroBot!"
+            text="Thank you for using WeatherBot! 🌱"
         )
     elif data == 'back':
         await start(update, context)
 
+async def handle_message(update: Update, context: CallbackContext):
+    text = update.message.text.strip()
+    mode = context.user_data.get('mode')
+
+    if mode == 'temp':
+        response = await get_weather(text, 'temp')
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=response,
+            reply_markup=create_weather_menu()
+        )
+    elif mode == 'uv':
+        response = await get_weather(text, 'uv')
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=response,
+            reply_markup=create_weather_menu()
+        )
+    else:
+        await start(update, context)
+
 async def get_weather(city: str, weather_type: str):
     lat, lon = await get_coordinates(city)
+   
     if not lat:
         return f"Location not found: {city}"
-    
+   
     weather = await fetch_weather(lat, lon)
     if not weather:
         return f"Weather data unavailable for {city}"
-
-    # Format all values to 2 decimal places
+   
+    # Format the response based on the requested weather type
     if weather_type == 'temp':
         return f"🌡️ Temperature in {city}: {weather['temp']:.2f}°C"
     elif weather_type == 'uv':
@@ -118,30 +136,17 @@ async def fetch_weather(lat: float, lon: float):
             "longitude": lon,
             "current": ["temperature_2m", "uv_index"]
         }
-        response = openmeteo.weather_api(url, params=params)[0]
-        current = response.Current()
-        return {
-            "temp": current.Variables(0).Value(),
-            "uv": current.Variables(1).Value(),
-        }
+        response = requests_cache.CachedSession().get(url, params=params).json()
+        if response.get("current"):
+            current = response["current"]
+            return {
+                "temp": current["temperature_2m"],
+                "uv": current["uv_index"]
+            }
+        return None
     except Exception as e:
         logger.error(f"Weather error: {e}")
         return None
-
-async def handle_message(update: Update, context: CallbackContext):
-    text = update.message.text.strip()
-    mode = context.user_data.get('mode')
-
-    if mode == 'weather':
-        weather_type = context.user_data.get('weather_type')
-        response = await get_weather(text, weather_type)
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=response,
-            reply_markup=create_weather_menu()
-        )
-    else:
-        await start(update, context)
 
 def main():
     try:
