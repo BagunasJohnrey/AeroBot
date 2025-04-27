@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 CONFIG = {
     "OPENROUTER_API_KEY": "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",
-    "TELEGRAM_TOKEN": "7929112977:AAF06-TXEMxFH5PMdDj0RJzXizJqC_ADNwA"
+    "TELEGRAM_TOKEN": "7712985692:AAF7aAks7-jdKsJFMcg2AONaFHwyAAPhrzE"
 }
 
 # Setup Open-Meteo API client with cache
