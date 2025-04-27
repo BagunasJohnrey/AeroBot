@@ -4,7 +4,6 @@ import openmeteo_requests
 import requests_cache
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
-from openai import OpenAI
 
 # Configure logging
 logging.basicConfig(
@@ -22,12 +21,6 @@ CONFIG = {
 # Setup Open-Meteo API client with cache
 cache_session = requests_cache.CachedSession('.cache', expire_after=3600)
 openmeteo = openmeteo_requests.Client(session=cache_session)
-
-# Create OpenAI client for AI functionality
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=CONFIG["OPENROUTER_API_KEY"]
-)
 
 # Eco tips database
 ECO_TIPS = [
@@ -206,85 +199,232 @@ def fetch_weather(lat: float, lon: float):
             "wind": current.Variables(3).Value()
         }
     except Exception as e:
-        logger.error(f"Weather fetch error: {e}")
+        logger.error(f"Weather error: {e}")
         return None
 
 def get_uv_level(uv_index):
-    if uv_index < 3:
-        return "Low"
-    elif uv_index < 6:
-        return "Moderate"
-    elif uv_index < 8:
-        return "High"
-    elif uv_index < 11:
-        return "Very High"
-    else:
-        return "Extreme"
+    uv_index = float(uv_index)
+    if uv_index < 3: return "Low"
+    elif uv_index < 6: return "Moderate"
+    elif uv_index < 8: return "High"
+    elif uv_index < 11: return "Very High"
+    else: return "Extreme"
 
-# AI-related functions
+# AI Chatbot function
 async def ai_chat(question: str) -> str:
     try:
-        # Sending a request to OpenRouter's API to get a chat completion response
-        completion = client.chat.completions.create(
-            extra_headers={
-                "HTTP-Referer": "<YOUR_SITE_URL>",  # Optional
-                "X-Title": "<YOUR_SITE_NAME>",      # Optional
+        response = requests.post(
+            url="https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {CONFIG['OPENROUTER_API_KEY']}",
+                "Content-Type": "application/json"
             },
-            model="deepseek/deepseek-chat-v3-0324:free",
-            messages=[
-                {
-                    "role": "user",
-                    "content": question
-                }
-            ]
+            json={
+                "model": "deepseek/deepseek-chat-v3-0324:free",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a helpful assistant that provides concise, informative answers."
+                    },
+                    {
+                        "role": "user",
+                        "content": question
+                    }
+                ],
+                "max_tokens": 500
+            }
         )
-
-        # Extract and return the response
-        response_message = completion.choices[0].message.content
-        return response_message
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
     except Exception as e:
         logger.error(f"AI chat error: {e}")
         return "Sorry, I'm having trouble processing your request right now."
 
 # Telegram bot handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    await update.message.reply(f"Hi {user.first_name}, I am AeroBot. I can help with climate awareness, weather updates, and more!")
+    keyboard = [
+        [InlineKeyboardButton("🌤️ Get Weather", callback_data='weather')],
+        [InlineKeyboardButton("🤖 AI Chat", callback_data='ai_chat')],
+        [InlineKeyboardButton("🌿 Eco Tips", callback_data='eco_tips')],
+        [InlineKeyboardButton("💧 Water Conservation", callback_data='water_tips')],
+        [InlineKeyboardButton("⚠️ Disaster Preparedness", callback_data='disaster_tips')],
+        [InlineKeyboardButton("📜 Past Climate Events", callback_data='climate_events')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        "Welcome to EcoGuardian Bot!\n\n"
+        "I can help you with:\n"
+        "- Weather information (temperature, UV index)\n"
+        "- AI-powered chat\n"
+        "- Eco-friendly living tips\n"
+        "- Water conservation advice\n"
+        "- Disaster preparedness guides\n"
+        "- Historical climate events\n\n"
+        "Choose an option below or type /help for commands:",
+        reply_markup=reply_markup
+    )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    help_text = (
-        "I can assist you with:\n"
-        "- Weather updates 🌡️\n"
-        "- Climate change awareness 🌍\n"
-        "- Eco-friendly tips ♻️\n"
-        "- Disaster preparedness ⚠️"
-    )
-    await update.message.reply(help_text)
+    help_text = """
+Available commands:
 
-async def eco_tips(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    tip = random.choice(ECO_TIPS)
-    await update.message.reply(tip)
+/start - Show main menu
+/help - Show this help message
+/weather <city> - Get temperature and UV index for a city
+/ai <question> - Ask the AI chatbot anything
+/ecotip - Get a random eco-friendly living tip
+/watertip - Get a random water conservation tip
+/disaster <type> - Get preparedness tips (typhoon, earthquake, flood, wildfire)
+/climateevents - Show notable past climate events
 
-async def water_tips(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    tip = random.choice(WATER_CONSERVATION_TIPS)
-    await update.message.reply(tip)
+You can also use the interactive menu buttons.
+"""
+    await update.message.reply_text(help_text)
 
-async def disaster_tips(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    event = context.args[0] if context.args else "earthquake"
-    if event not in DISASTER_TIPS:
-        await update.message.reply("Invalid event type. Choose from: typhoon, earthquake, flood, wildfire.")
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == 'weather':
+        await query.edit_message_text(
+            text="Please send me a city name to get weather information.\n"
+                 "Example: 'Tokyo' or 'New York'"
+        )
+    elif query.data == 'ai_chat':
+        await query.edit_message_text(
+            text="You can ask me anything! Just type your question after /ai command.\n"
+                 "Example: /ai What are the benefits of solar energy?"
+        )
+    elif query.data == 'eco_tips':
+        tip = ECO_TIPS[hash(query.from_user.id) % len(ECO_TIPS)]
+        await query.edit_message_text(text=f"🌱 Eco Tip:\n\n{tip}")
+    elif query.data == 'water_tips':
+        tip = WATER_CONSERVATION_TIPS[hash(query.from_user.id) % len(WATER_CONSERVATION_TIPS)]
+        await query.edit_message_text(text=f"💧 Water Conservation Tip:\n\n{tip}")
+    elif query.data == 'disaster_tips':
+        keyboard = [
+            [InlineKeyboardButton("🌀 Typhoon", callback_data='disaster_typhoon')],
+            [InlineKeyboardButton("🌋 Earthquake", callback_data='disaster_earthquake')],
+            [InlineKeyboardButton("🌊 Flood", callback_data='disaster_flood')],
+            [InlineKeyboardButton("🔥 Wildfire", callback_data='disaster_wildfire')],
+            [InlineKeyboardButton("⬅️ Back", callback_data='back')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            text="Select a disaster type for preparedness tips:",
+            reply_markup=reply_markup
+        )
+    elif query.data == 'climate_events':
+        events = "\n\n".join(PAST_CLIMATE_EVENTS[:5])  # Show first 5 to avoid message length issues
+        await query.edit_message_text(
+            text="📜 Notable Past Climate Events:\n\n" + events + 
+            "\n\nUse /climateevents for more historical events."
+        )
+    elif query.data == 'back':
+        await start(update, context)
+    elif query.data.startswith('disaster_'):
+        disaster_type = query.data.split('_')[1]
+        tips = DISASTER_TIPS.get(disaster_type, [])
+        if tips:
+            formatted_tips = "\n\n• ".join(tips[:5])  # Show first 5 tips
+            await query.edit_message_text(
+                text=f"⚠️ {disaster_type.capitalize()} Preparedness Tips:\n\n• {formatted_tips}\n\n"
+                     f"Use /disaster {disaster_type} for more tips."
+            )
+        else:
+            await query.edit_message_text(text="Invalid disaster type selected.")
+
+async def weather_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Please specify a city. Example: /weather London")
+        return
+    
+    city = " ".join(context.args)
+    temp = await get_temperature(city)
+    uv = await get_uv_index(city)
+    await update.message.reply_text(f"{temp}\n{uv}")
+
+async def ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Please ask a question after /ai. Example: /ai How can I reduce my carbon footprint?")
+        return
+    
+    question = " ".join(context.args)
+    await update.message.reply_text("🤖 Thinking...")
+    response = await ai_chat(question)
+    await update.message.reply_text(response)
+
+async def eco_tip_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    tip = ECO_TIPS[hash(update.message.from_user.id) % len(ECO_TIPS)]
+    await update.message.reply_text(f"🌱 Eco Tip:\n\n{tip}")
+
+async def water_tip_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    tip = WATER_CONSERVATION_TIPS[hash(update.message.from_user.id) % len(WATER_CONSERVATION_TIPS)]
+    await update.message.reply_text(f"💧 Water Conservation Tip:\n\n{tip}")
+
+async def disaster_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text(
+            "Please specify a disaster type. Options: typhoon, earthquake, flood, wildfire\n"
+            "Example: /disaster earthquake"
+        )
+        return
+    
+    disaster_type = context.args[0].lower()
+    tips = DISASTER_TIPS.get(disaster_type, [])
+    
+    if tips:
+        formatted_tips = "\n\n• ".join(tips)
+        await update.message.reply_text(
+            f"⚠️ {disaster_type.capitalize()} Preparedness Tips:\n\n• {formatted_tips}"
+        )
     else:
-        tip = random.choice(DISASTER_TIPS[event])
-        await update.message.reply(tip)
+        await update.message.reply_text(
+            "Invalid disaster type. Options: typhoon, earthquake, flood, wildfire"
+        )
 
-# Running the bot
-if __name__ == "__main__":
+async def climate_events_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    events = "\n\n".join(PAST_CLIMATE_EVENTS)
+    await update.message.reply_text(
+        "📜 Notable Past Climate Events:\n\n" + events
+    )
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if text.lower().startswith(('weather', 'temp', 'temperature', 'uv')):
+        city = text.split(' ', 1)[1] if ' ' in text else None
+        if city:
+            temp = await get_temperature(city)
+            uv = await get_uv_index(city)
+            await update.message.reply_text(f"{temp}\n{uv}")
+        else:
+            await update.message.reply_text("Please specify a city after your request.")
+    else:
+        await update.message.reply_text(
+            "I didn't understand that. Try one of the commands or use /help for options."
+        )
+
+def main():
     application = Application.builder().token(CONFIG["TELEGRAM_TOKEN"]).build()
 
+    # Command handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("eco_tips", eco_tips))
-    application.add_handler(CommandHandler("water_tips", water_tips))
-    application.add_handler(CommandHandler("disaster_tips", disaster_tips))
+    application.add_handler(CommandHandler("weather", weather_command))
+    application.add_handler(CommandHandler("ai", ai_command))
+    application.add_handler(CommandHandler("ecotip", eco_tip_command))
+    application.add_handler(CommandHandler("watertip", water_tip_command))
+    application.add_handler(CommandHandler("disaster", disaster_command))
+    application.add_handler(CommandHandler("climateevents", climate_events_command))
 
+    # Button handler
+    application.add_handler(CallbackQueryHandler(button_handler))
+
+    # Message handler
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    # Run the bot
     application.run_polling()
+
+if __name__ == '__main__':
+    main()
